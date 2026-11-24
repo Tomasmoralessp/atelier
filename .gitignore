@@ -31,3 +31,4 @@ frontend/src-tauri/gen/
 Thumbs.db
 
 *.tsbuildinfo
+*.tsbuildinfo
