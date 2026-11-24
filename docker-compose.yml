@@ -12,8 +12,12 @@ services:
         source: ~/atelier_gallery
         # Where does the data lived inside the container
         target: /app/data
+    environment:
+      - PYTHONPATH=/app
   frontend:
     build: ./frontend
     container_name: vite_frontend
     ports:
       - "3000:80"
+    depends_on:
+      - backend

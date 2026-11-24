@@ -1,19 +1,31 @@
 import torch
 import open_clip
+from typing import Dict, List, Tuple
 
 from PIL import Image
 import matplotlib.pyplot as plt
 
-from .embeddings import model
+from .embeddings import get_model
 
 
-tokenizer = open_clip.get_tokenizer("ViT-B-32")
+# Global model instance for reuse
+_model = None
+_tokenizer = None
+
+def get_global_model():
+    global _model, _tokenizer
+    if _model is None:
+        # Use the same model that's used for embeddings (RN50)
+        _model, _ = get_model()
+        _tokenizer = open_clip.get_tokenizer("RN50")  # Match the model we're using
+    return _model, _tokenizer
 
 # Cache: id(category_prompts) -> (categories, text_embeddings ya apiladas)
 _category_embedding_cache: dict[int, tuple[list, torch.Tensor]] = {}
 
 
 def get_averaged_text_embedding(prompts: list[str]) -> torch.Tensor:
+    model, tokenizer = get_global_model()
     tokens = tokenizer(prompts)
     with torch.no_grad():
         embeddings = model.encode_text(tokens)
@@ -41,13 +53,15 @@ def show_prediction(image_path: str, predicted_category: str, confidence: float)
     image = Image.open(image_path)
     plt.imshow(image)
     plt.title(f"{predicted_category} ({confidence:.2f})")
-    plt.axis("off")
+    plt.axis("off")  
     plt.show()
 
 
 def classify_zero_shot_batch(
     image_embeddings: list, category_prompts: dict
 ) -> list[dict]:
+    model, _ = get_global_model()
+    
     image_tensor = torch.tensor(image_embeddings)
     image_tensor = image_tensor / image_tensor.norm(dim=-1, keepdim=True)
 

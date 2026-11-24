@@ -1,22 +1,39 @@
-# Use an official Python runtime as a parent image
-FROM python:3.14.7-slim
+# Multi-stage build for optimized image size
 
-# Set the working directory in the container
+# Stage 1: Build dependencies
+FROM python:3.9-slim as builder
+
 WORKDIR /app
 
-# Copy requirements into the container and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy the rest of the application code into the container
+# Copy requirements and install
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Stage 2: Final runtime image
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Create cache directory
+RUN mkdir -p pipeline/cache
+
+# Copy installed dependencies from builder stage
+COPY --from=builder /root/.local /root/.local
+
+# Make sure Python can find the packages
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy application code
 COPY . .
 
-# The container will listen on port 8000 for incoming connections
+# Expose port
 EXPOSE 8000
 
-# Command to run the application using Uvicorn.
-# The host 0.0.0.0 makes the server accessible from outside the container.
+# Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
-

@@ -1,11 +1,13 @@
-**Ahora sí, las capturas que armaría, pensando en contar la historia completa del producto:**
+**Atelier Gallery - Product Screenshots**
 
-1. **Grid principal** — la vista general, con buena variedad de tipos (pinturas, ilustraciones, fotos) para mostrar que maneja contenido diverso.
-2. **Detalle de una obra** — paleta de colores + panel de clasificación (Type/Subject/Technique) ya completados, mostrando el valor real de la clasificación automática.
-3. **Flip de tarjeta (reverso)** — un detalle de UI distintivo que vale la pena mostrar.
-4. **Panel de filtros abierto** — especialmente si mostrás el filtro por color, que es una función menos común.
-5. **Selección múltiple activa** — con la barra flotante mostrando "Apply tag / Copy / Delete", demuestra el flujo de trabajo en lote.
-6. **Modo oscuro vs claro** — dos capturas lado a lado.
-7. **La app corriendo en Tauri** (ventana nativa) — para reforzar que es multiplataforma.
+These screenshots showcase the key features and user interface of Atelier Gallery:
 
-Con 5-7 capturas bien elegidas ya tenés una cobertura completa sin saturar el README. ¿Le pedís a Ari unas piezas suyas para repoblar los datos de prueba antes de sacar las capturas finales?
+1. **Main Gallery View** — The overview screen displaying diverse artwork types (paintings, illustrations, photos) to demonstrate content variety.
+2. **Artwork Detail View** — Color palette + classification panel (Type/Subject/Technique) showing the value of automatic classification.
+3. **Card Flip UI** — Distinctive UI element worth showcasing.
+4. **Open Filters Panel** — Especially color-based filtering, a less common but powerful feature.
+5. **Bulk Selection Mode** — With floating bar showing "Apply tag / Copy / Delete", demonstrating batch workflow.
+6. **Dark/Light Mode** — Side-by-side comparison of themes.
+7. **Tauri Desktop Application** — Native window to emphasize multi-platform support.
+
+With 5-7 carefully chosen screenshots, we achieve complete coverage without overloading the documentation. These images will be used in the README and marketing materials.
