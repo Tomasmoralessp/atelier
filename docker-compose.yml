@@ -1,0 +1,19 @@
+name: atelier
+
+services:
+  backend:
+    build: ./backend
+    container_name: fastapi_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - type: bind
+        # Where is the data stored in the disk
+        source: ~/atelier_gallery
+        # Where does the data lived inside the container
+        target: /app/data
+  frontend:
+    build: ./frontend
+    container_name: vite_frontend
+    ports:
+      - "3000:80"

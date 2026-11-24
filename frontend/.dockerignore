@@ -1,0 +1,21 @@
+
+# Local dependencies and build outputs
+node_modules/
+dist/
+src-tauri/
+
+# TypeScript cache
+tsconfig.tsbuildinfo
+
+# Docker config and documentation
+Dockerfile
+.dockerignore
+README.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local environment variables
+.env
+.env.local

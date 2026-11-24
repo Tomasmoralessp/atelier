@@ -1,0 +1,30 @@
+
+# Rust build output 
+/target/
+
+# Tauri-generated folder (bindings, generated schemas, etc.)
+/gen/schemas/
+/gen/**/*.d.ts
+
+# Note: /gen/ may also contain necessary files (e.g. android/ios platform
+# projects) if you're targeting mobile, so don't ignore it entirely in that case.
+# If you're desktop-only, you can just ignore the whole folder:
+# /gen/
+
+# Environment variables / secrets
+.env
+.env.local
+.env.*.local
+
+# Code signing certificates and keys (NEVER commit these)
+*.p12
+*.pem
+*.key
+*.mobileprovision
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Build logs
+*.log
