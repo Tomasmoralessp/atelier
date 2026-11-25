@@ -1,5 +1,5 @@
 <div align="center">
-<img src="frontend/src-tauri/icons/icon.png" alt="Atelier" width="140" height="140">
+<img src="frontend/src-tauri/icons/icon.png" alt="Atelier" width="256" height="256">
 
 # Atelier
 
@@ -31,7 +31,7 @@ Digital art collections grow messy fast: thousands of files, no consistent names
 <table>
   <tr>
     <td width="33%"><img src="docs/screenshots/artwork-detail-2.png" alt="Artwork review in dark mode"></td>
-    <td width="33%"><img src="docs/color_filter.png" alt="Color filter"></td>
+    <td width="33%"><img src="docs/screenshots/photo-person.png" alt="Classify Photographs"></td>
     <td width="33%"><img src="docs/screenshots/detail-tag-1.png" alt="Creating a tag"></td>
   </tr>
   <tr>
