@@ -1,5 +1,5 @@
 <div align="center">
-<img src="frontend/public/favicon.svg" alt="Atelier" width="88" height="88">
+<img src="frontend/src-tauri/icons/icon.png" alt="Atelier" width="88" height="88">
 # Atelier
 
 **Your art collection, understood.**<br>
@@ -8,7 +8,7 @@ A gallery that classifies, tags and organizes your artwork automatically.
 [Quick start](#quick-start) · [NAS](INSTALLATION_GUIDE.md) · [Docs](docs/ARCHITECTURE.md)
 
 <br>
-<img src="docs/main_gallery.png" alt="Atelier gallery view" width="860">
+<img src="docs/screenshots/grid-overview.png" alt="Atelier gallery view" width="860">
 </div>
 <br>
 ## Why Atelier
@@ -28,14 +28,24 @@ Digital art collections grow messy fast: thousands of files, no consistent names
 <br>
 <table>
   <tr>
-    <td width="33%"><img src="docs/artwork_detail.png" alt="Artwork detail"></td>
+    <td width="33%"><img src="docs/screenshots/artwork-detail-2.png" alt="Artwork review in dark mode"></td>
     <td width="33%"><img src="docs/color_filter.png" alt="Color filter"></td>
-    <td width="33%"><img src="docs/dark_light_mode.png" alt="Dark and light mode"></td>
+    <td width="33%"><img src="docs/screenshots/detail-tag-1.png" alt="Creating a tag"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Automatic classification</sub></td>
+    <td align="center"><sub>Review and classify</sub></td>
     <td align="center"><sub>Filter by color</sub></td>
-    <td align="center"><sub>Light &amp; dark</sub></td>
+    <td align="center"><sub>Create tags on the fly</sub></td>
+  </tr>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/bulk-select-actions.png" alt="Bulk selection and actions"></td>
+    <td width="33%"><img src="docs/screenshots/card-flip-over.png" alt="Card flipped to show metadata"></td>
+    <td width="33%"><img src="docs/screenshots/artwork-detail.png" alt="Artwork review in light mode"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Bulk actions</sub></td>
+    <td align="center"><sub>Flip a card for details</sub></td>
+    <td align="center"><sub>Light mode</sub></td>
   </tr>
 </table>
 <br>
@@ -67,6 +77,6 @@ Contributions are welcome. Fork the repo, create a feature branch and open a pul
 
 <br>
 <div align="center">
-  <sub>Made with ❤️ for artists and curators.</sub>
-</div>
+<sub>Made with ❤️ for artists and curators.</sub>
 
+</div>
