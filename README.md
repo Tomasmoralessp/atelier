@@ -36,7 +36,7 @@ Digital art collections grow messy fast: thousands of files, no consistent names
   </tr>
   <tr>
     <td align="center"><sub>Review and classify</sub></td>
-    <td align="center"><sub>Filter by color</sub></td>
+    <td align="center"><sub>Classify Photographs</sub></td>
     <td align="center"><sub>Create tags on the fly</sub></td>
   </tr>
   <tr>
@@ -45,7 +45,7 @@ Digital art collections grow messy fast: thousands of files, no consistent names
     <td width="33%"><img src="docs/screenshots/artwork-detail.png" alt="Artwork review in light mode"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Bulk actions</sub></td>
+    <td align="center"><sub>Bulk actions and filter by color</sub></td>
     <td align="center"><sub>Flip a card for details</sub></td>
     <td align="center"><sub>Light mode</sub></td>
   </tr>
