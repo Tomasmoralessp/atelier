@@ -13,7 +13,7 @@
 
 ```bash
 # Clone repository
-git clone <https://github.com/Tomasmoralessp/atelier.git>
+git clone https://github.com/Tomasmoralessp/atelier.git>
 cd atelier
 
 # Start development environment

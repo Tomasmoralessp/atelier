@@ -55,7 +55,7 @@ Digital art collections grow messy fast: thousands of files, no consistent names
 ## Quick start
 
 ```bash
-git clone <https://github.com/Tomasmoralessp/atelier.git>
+git clone https://github.com/Tomasmoralessp/atelier.git
 cd atelier
 docker-compose up -d
 ```
