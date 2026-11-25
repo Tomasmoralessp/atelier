@@ -12,6 +12,7 @@ A gallery that classifies, tags and organizes your artwork automatically.
 <img src="docs/screenshots/grid-overview.png" alt="Atelier gallery view" width="860">
 </div>
 <br>
+
 ## Why Atelier
 
 Digital art collections grow messy fast: thousands of files, no consistent names, no way to find "that blue-ish watercolor landscape". Atelier looks at every piece and does the filing for you, so you can spend your time on the work, not on folders.
@@ -50,6 +51,7 @@ Digital art collections grow messy fast: thousands of files, no consistent names
   </tr>
 </table>
 <br>
+
 ## Quick start
 
 ```bash
