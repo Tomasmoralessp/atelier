@@ -1,5 +1,6 @@
 <div align="center">
 <img src="frontend/src-tauri/icons/icon.png" alt="Atelier" width="88" height="88">
+
 # Atelier
 
 **Your art collection, understood.**<br>
