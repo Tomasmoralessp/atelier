@@ -1,12 +1,14 @@
 import enum
 import shutil
+import uuid
+from pathlib import Path
+
 from fastapi import UploadFile
 from PIL import Image
-from pathlib import Path
-import mimetypes
 
-
-IMAGE_EXTENSIONS = set(Image.registered_extensions().keys())
+IMAGE_EXTENSIONS = {
+    ext for ext, fmt in Image.registered_extensions().items() if fmt in Image.OPEN
+}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 
 
@@ -17,10 +19,12 @@ class FileType(enum.Enum):
 
 
 async def save_upload_to_temp(file: UploadFile, temp_dir: Path) -> Path:
-    destination = temp_dir / file.filename
-    Path(temp_dir).mkdir(parents=True, exist_ok=True)
-    contents = await file.read()
-    destination.write_bytes(contents)
+    # Never trust the client file name for the path (it may contain folders).
+    suffix = Path(file.filename or "").suffix.lower()
+    destination = temp_dir / f"{uuid.uuid4().hex}{suffix}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    with destination.open("wb") as out:
+        shutil.copyfileobj(file.file, out)
     return destination
 
 
@@ -31,33 +35,29 @@ def get_file_extension(file_path: Path) -> str:
 def get_file_type(ext: str) -> FileType:
     if ext in IMAGE_EXTENSIONS:
         return FileType.image
-    elif ext in VIDEO_EXTENSIONS:
+    if ext in VIDEO_EXTENSIONS:
         return FileType.video
     return FileType.unknown
 
 
-def move_to_storage(
-    file_id: str,
-    file_extension: str,
-    file_path: Path,
-    file_type: FileType,
-    image_dir: Path,
-    video_dir: Path,
-    unknown_dir: Path,
-) -> str:
-    if file_type == FileType.image:
-        storage_dir = image_dir
-    elif file_type == FileType.video:
-        storage_dir = video_dir
-    else:
-        storage_dir = unknown_dir
+def is_readable_image(file_path: Path) -> bool:
+    try:
+        with Image.open(file_path) as image:
+            image.verify()
+        return True
+    except Exception:
+        return False
 
-    destination = Path(storage_dir) / f"{file_id}{file_extension}"
 
-    Path(storage_dir).mkdir(parents=True, exist_ok=True)
-
+def store_file(source: Path, destination: Path, copy: bool) -> None:
+    """Copy or move source into the library. Existing files are kept as-is
+    (file names are content hashes, so same name means same content)."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
-        return str(destination)
-
-    shutil.move(file_path, destination)
-    return str(destination)
+        if not copy:
+            source.unlink(missing_ok=True)
+        return
+    if copy:
+        shutil.copy2(source, destination)
+    else:
+        shutil.move(source, destination)

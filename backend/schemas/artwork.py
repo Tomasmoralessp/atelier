@@ -69,3 +69,14 @@ class ArtworkFilter(BaseModel):
 
 class ArtworkDeleteRequest(BaseModel):
     artwork_ids: list[str]
+
+
+class SkippedFile(BaseModel):
+    name: str
+    reason: str
+
+
+class ImportSummaryResponse(BaseModel):
+    imported: list[str] = []
+    duplicates: list[str] = []
+    skipped: list[SkippedFile] = []

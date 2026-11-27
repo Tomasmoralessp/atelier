@@ -1,6 +1,4 @@
-import traceback
 from typing import Annotated
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, UploadFile, HTTPException, Query
 from sqlalchemy import select
@@ -10,8 +8,12 @@ from schemas.artwork import (
     ArtworkUpdate,
     ArtworkFilter,
     ArtworkDeleteRequest,
+    ImportSummaryResponse,
 )
-from pipeline.orchestrator import TEMP_DIR, orchestrator_object, Session
+from sqlalchemy.orm import Session
+
+import settings
+from pipeline.orchestrator import process_batch
 from pipeline.storage import save_upload_to_temp
 from pipeline.colors import rgb_to_lab, lab_distance
 from database.models import Artwork, ArtworkTag, ArtworkColor
@@ -113,20 +115,21 @@ def get_artwork(artwork_id: str, session: Session = Depends(get_session)):
     return ArtworkResponse.model_validate(artwork)
 
 
-@router.post("")
+@router.post("", response_model=ImportSummaryResponse)
 async def post_artworks(
     files: list[UploadFile], session: Session = Depends(get_session)
-) -> bool:
-    file_paths = []
-    for file in files:
-        file_paths.append(await save_upload_to_temp(file=file, temp_dir=TEMP_DIR))
-
+):
+    temp_paths = [
+        await save_upload_to_temp(file=file, temp_dir=settings.TEMP_DIR)
+        for file in files
+    ]
+    names = [file.filename or path.name for file, path in zip(files, temp_paths)]
     try:
-        orchestrator_object.process_batch(file_paths=file_paths, session=session)
-    except Exception:
-        traceback.print_exc()
-        return False
-    return True
+        summary = process_batch(temp_paths, session, copy=False, names=names)
+    finally:
+        for path in temp_paths:
+            path.unlink(missing_ok=True)
+    return ImportSummaryResponse.model_validate(summary, from_attributes=True)
 
 
 @router.patch("/{artwork_id}", response_model=ArtworkResponse)
@@ -193,9 +196,7 @@ def delete_artworks(
             raise HTTPException(
                 404, detail=f"Artwork with id {artwork_id} was not found."
             )
-        file_path = Path(artwork.file_path)
-        if file_path.exists():
-            file_path.unlink()
+        settings.resolve_media_path(artwork.file_path).unlink(missing_ok=True)
         session.delete(artwork)
     session.commit()
     return True

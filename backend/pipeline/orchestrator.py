@@ -1,225 +1,136 @@
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-import pipeline.hashing
-import pipeline.storage
+import pipeline.categories
+import pipeline.classification
 import pipeline.colors
 import pipeline.embeddings
-import pipeline.classification
-import pipeline.categories
-
+import pipeline.hashing
+import settings
 from database.models import Artwork, ArtworkColor
+from pipeline.storage import FileType, get_file_extension, get_file_type
+from pipeline.storage import is_readable_image, store_file
+
+NUM_COLOR_PALETTE = 5
 
 
-ATELIER_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+@dataclass
+class ImportSummary:
+    imported: list[str] = field(default_factory=list)
+    duplicates: list[str] = field(default_factory=list)
+    skipped: list[dict] = field(default_factory=list)
 
-IMAGES_DIR = ATELIER_DATA_DIR / "images"
-VIDEOS_DIR = ATELIER_DATA_DIR / "videos"
-UNKNOWN_DIR = ATELIER_DATA_DIR / "unknown"
-TEMP_DIR = ATELIER_DATA_DIR / "temp"
+    def merge(self, other: "ImportSummary") -> None:
+        self.imported += other.imported
+        self.duplicates += other.duplicates
+        self.skipped += other.skipped
 
 
-class Orchestrator:
-    def __init__(self, image_dir: Path, video_dir: Path, unknown_dir: Path):
-        self.image_dir = image_dir
-        self.video_dir = video_dir
-        self.unknown_dir = unknown_dir
-        self.num_color_palette = 5
+def _media_dir(file_type: FileType) -> Path:
+    return settings.VIDEOS_DIR if file_type == FileType.video else settings.IMAGES_DIR
 
-    def save_artwork(self, session, artwork_data: dict) -> None:
-        new_artwork = Artwork(**artwork_data)
-        session.add(new_artwork)
 
-    def save_artwork_color(self, session, artwork_color_data: dict) -> None:
-        new_artwork_color = ArtworkColor(**artwork_color_data)
-        session.add(new_artwork_color)
-
-    def get_file_id(self, file_path: Path) -> str:
-        file_id = pipeline.hashing.compute_hash(file_path)
-        return file_id
-
-    def get_file_info(self, file_path: Path) -> tuple[str, pipeline.storage.FileType]:
-        ext = pipeline.storage.get_file_extension(file_path)
-
-        file_type = pipeline.storage.get_file_type(ext)
-
-        return ext, file_type
-
-    def move_to_storage(
-        self,
-        file_id: str,
-        file_path: Path,
-        file_extension: str,
-        file_type: pipeline.storage.FileType,
-    ) -> str:
-        file_destination = pipeline.storage.move_to_storage(
-            file_id=file_id,
-            file_path=file_path,
-            file_extension=file_extension,
-            file_type=file_type,
-            image_dir=self.image_dir,
-            video_dir=self.video_dir,
-            unknown_dir=self.unknown_dir,
-        )
-        return file_destination
-
-    def get_color_palette(self, image_path: Path) -> list[dict]:
-        return pipeline.colors.process_and_extract_color_palette(
-            image_path=image_path, num_colors=self.num_color_palette
+def _classify(images: list[dict]) -> None:
+    """Fill image_type / subject / art_technique / colors in place."""
+    embeddings = pipeline.embeddings.generate_embeddings_batch(
+        [item["source"] for item in images]
+    )
+    image_types = pipeline.classification.classify_zero_shot_batch(
+        embeddings, pipeline.categories.IMAGE_TYPE_PROMPTS
+    )
+    for item, embedding, image_type in zip(images, embeddings, image_types):
+        item["embedding"] = embedding
+        item["image_type"] = image_type["category"]
+        item["colors"] = pipeline.colors.process_and_extract_color_palette(
+            image_path=item["source"], num_colors=NUM_COLOR_PALETTE
         )
 
-    def generate_embeddings(self, image_paths: list[Path]) -> list:
-        return pipeline.embeddings.generate_embeddings_batch(image_paths=image_paths)
-
-    def get_image_types(self, image_embeddings: list) -> list[dict]:
-        return pipeline.classification.classify_zero_shot_batch(
-            image_embeddings=image_embeddings,
-            category_prompts=pipeline.categories.IMAGE_TYPE_PROMPTS,
-        )
-
-    def get_subjects(self, image_embeddings: list) -> list[dict]:
-        return pipeline.classification.classify_zero_shot_batch(
-            image_embeddings=image_embeddings,
-            category_prompts=pipeline.categories.SUBJECT_PROMPTS,
-        )
-
-    def get_art_technique(self, image_embeddings: list) -> list[dict]:
-        return pipeline.classification.classify_zero_shot_batch(
-            image_embeddings=image_embeddings,
-            category_prompts=pipeline.categories.ART_TECHNIQUE_PROMPTS,
-        )
-
-    def is_artwork_duplicated(self, file_id: str, session: Session) -> bool:
-        query = select(Artwork).where(Artwork.id == file_id)
-        result = session.execute(query)
-        artwork = result.scalar_one_or_none()
-
-        return artwork is not None
-
-    def process_batch(self, file_paths: list[Path], session: Session):
-        try:
-            images_data = []
-            for file_path in file_paths:
-                file_id = self.get_file_id(file_path=file_path)
-
-                if self.is_artwork_duplicated(file_id=file_id, session=session):
-                    pass
-                else:
-                    file_extension, file_type = self.get_file_info(file_path)
-
-                    if file_type == pipeline.storage.FileType.image:
-                        images_data.append(
-                            {
-                                "id": file_id,
-                                "file_type": file_type,
-                                "file_path": file_path,
-                                "image_type": file_type,
-                                "file_extension": file_extension,
-                            }
-                        )
-
-                    elif file_type == pipeline.storage.FileType.video:
-                        file_destination = self.move_to_storage(
-                            file_id=file_id,
-                            file_path=file_path,
-                            file_extension=file_extension,
-                            file_type=file_type,
-                        )
-                        artwork_data = {
-                            "id": file_id,
-                            "file_type": "video",
-                            "file_extension": file_extension.removeprefix("."),
-                            "file_path": file_destination,
-                        }
-                        self.save_artwork(session, artwork_data)
-
-                    elif file_type == pipeline.storage.FileType.unknown:
-                        # TODO:Error control
-                        self.move_to_storage(
-                            file_id=file_id,
-                            file_path=file_path,
-                            file_extension=file_extension,
-                            file_type=file_type,
-                        )
-
-            image_paths = [item["file_path"] for item in images_data]
-
-            if image_paths:
-                embeddings = self.generate_embeddings(image_paths)
-                image_types = self.get_image_types(embeddings)
-                for i, item in enumerate(images_data):
-                    item["embedding"] = embeddings[i]
-                    item["image_type"] = image_types[i]["category"]
-                    item["image_type_confidence"] = image_types[i]["confidence"]
-                    item["color_palette"] = self.get_color_palette(item["file_path"])
-
-                items_needing_subject = [
-                    item
-                    for item in images_data
-                    if item["image_type"] in pipeline.categories.TYPES_WITH_SUBJECT
-                ]
-
-                if items_needing_subject:
-                    subject_embeddings = [
-                        item["embedding"] for item in items_needing_subject
-                    ]
-                    subjects = self.get_subjects(subject_embeddings)
-                    for item, subject_result in zip(items_needing_subject, subjects):
-                        item["subject"] = subject_result["category"]
-                        item["subject_confidence"] = subject_result["confidence"]
-
-                items_with_technique = [
-                    item
-                    for item in images_data
-                    if item["image_type"] in pipeline.categories.TYPES_WITH_TECHNIQUE
-                ]
-
-                if items_with_technique:
-                    technique_embeddings = [
-                        item["embedding"] for item in items_with_technique
-                    ]
-                    techniques = self.get_art_technique(technique_embeddings)
-                    for item, technique_result in zip(items_with_technique, techniques):
-                        item["art_technique"] = technique_result["category"]
-                        item["technique_confidence"] = technique_result["confidence"]
-
-                for item in images_data:
-                    file_destination = self.move_to_storage(
-                        file_path=item["file_path"],
-                        file_id=item["id"],
-                        file_extension=item["file_extension"],
-                        file_type=item["file_type"],
-                    )
-                    artwork_data = {
-                        "id": item["id"],
-                        "file_type": item["file_type"].value,
-                        "file_extension": item["file_extension"].removeprefix("."),
-                        "file_path": str(file_destination),
-                        "image_type": item["image_type"],
-                        "subject": item.get("subject"),
-                        "art_technique": item.get("art_technique"),
-                    }
-                    self.save_artwork(session, artwork_data)
-                    for color in item["color_palette"]:
-                        artwork_color = {
-                            "artwork_id": item["id"],
-                            "r": color["rgb"][0],
-                            "g": color["rgb"][1],
-                            "b": color["rgb"][2],
-                            "l_value": color["lab"][0],
-                            "a_value": color["lab"][1],
-                            "b_value": color["lab"][2],
-                            "percentage": color["percentage"],
-                        }
-                        self.save_artwork_color(session, artwork_color)
-
-            session.commit()
-
-        except Exception:
-            session.rollback()
-            raise
+    for field_name, allowed_types, prompts in (
+        ("subject", pipeline.categories.TYPES_WITH_SUBJECT,
+         pipeline.categories.SUBJECT_PROMPTS),
+        ("art_technique", pipeline.categories.TYPES_WITH_TECHNIQUE,
+         pipeline.categories.ART_TECHNIQUE_PROMPTS),
+    ):
+        targets = [item for item in images if item["image_type"] in allowed_types]
+        if targets:
+            results = pipeline.classification.classify_zero_shot_batch(
+                [item["embedding"] for item in targets], prompts
+            )
+            for item, result in zip(targets, results):
+                item[field_name] = result["category"]
 
 
-orchestrator_object = Orchestrator(IMAGES_DIR, VIDEOS_DIR, UNKNOWN_DIR)
+def process_batch(
+    file_paths: list[Path],
+    session: Session,
+    copy: bool,
+    names: list[str] | None = None,
+) -> ImportSummary:
+    """Import files into the library.
+
+    copy=True keeps the originals (folder import); copy=False moves them
+    (uploaded temp files). names are the labels used in the summary.
+    """
+    names = names or [p.name for p in file_paths]
+    summary = ImportSummary()
+    seen_ids: set[str] = set()
+    images, videos = [], []
+
+    for source, name in zip(file_paths, names):
+        ext = get_file_extension(source)
+        file_type = get_file_type(ext)
+        if file_type == FileType.unknown:
+            summary.skipped.append({"name": name, "reason": "not an image"})
+            continue
+        if file_type == FileType.image and not is_readable_image(source):
+            summary.skipped.append({"name": name, "reason": "unreadable image"})
+            continue
+
+        file_id = pipeline.hashing.compute_hash(source)
+        is_known = session.execute(
+            select(Artwork.id).where(Artwork.id == file_id)
+        ).first()
+        if file_id in seen_ids or is_known:
+            summary.duplicates.append(name)
+            continue
+        seen_ids.add(file_id)
+
+        item = {"id": file_id, "source": source, "name": name, "ext": ext,
+                "file_type": file_type}
+        (images if file_type == FileType.image else videos).append(item)
+
+    try:
+        if images:
+            _classify(images)
+
+        for item in images + videos:
+            file_type = item["file_type"]
+            relative = Path(_media_dir(file_type).name) / f"{item['id']}{item['ext']}"
+            store_file(item["source"], settings.DATA_DIR / relative, copy=copy)
+            session.add(Artwork(
+                id=item["id"],
+                file_type=file_type.value,
+                file_extension=item["ext"].removeprefix("."),
+                file_path=str(relative),
+                image_type=item.get("image_type"),
+                subject=item.get("subject"),
+                art_technique=item.get("art_technique"),
+            ))
+            for color in item.get("colors", []):
+                session.add(ArtworkColor(
+                    artwork_id=item["id"],
+                    r=color["rgb"][0], g=color["rgb"][1], b=color["rgb"][2],
+                    l_value=color["lab"][0], a_value=color["lab"][1],
+                    b_value=color["lab"][2],
+                    percentage=color["percentage"],
+                ))
+            summary.imported.append(item["name"])
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+    return summary
