@@ -54,19 +54,25 @@ Digital art collections grow messy fast: thousands of files, no consistent names
 
 ## Quick start
 
+**Desktop app (standalone, no server or internet needed)**
+
+1. Build: `./build-desktop.sh` (needs Python 3.11, Node and Rust; ~10 min the first time).
+2. Install: open `frontend/src-tauri/target/release/bundle/dmg/Atelier_*.dmg` and drag Atelier to Applications. Apple Silicon only.
+3. Run: open Atelier. The first launch takes a minute or two; later ones a few seconds.
+4. Import: **Import folder…** copies a folder of images into the library, skipping duplicates and non-image files.
+5. Data lives in `~/Library/Application Support/Atelier` (`atelier.db` + `images/`); change it in Settings.
+6. Back up: Settings → **Back up now** to any folder (external disk, a NAS share), or just copy the data folder.
+7. NAS: run `docker-compose.nas.yml` on the NAS, then Settings → **On a server**. The Mac classifies, the NAS stores.
+
+**Web (Docker)**
+
 ```bash
-git clone https://github.com/Tomasmoralessp/atelier.git
-cd atelier
-docker-compose up -d
+docker-compose up -d   # http://localhost:3000
 ```
-
-Then open **http://localhost:3000** (API docs at http://localhost:8000/docs).
-
-Running on a NAS? See the [installation guide](INSTALLATION_GUIDE.md).
 
 ## Built with
 
-FastAPI · PostgreSQL · React 19 · TypeScript · Tailwind CSS · Tauri · Docker
+FastAPI · SQLite · React 19 · TypeScript · Tailwind CSS · Tauri · Docker
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the pieces fit together.
 
