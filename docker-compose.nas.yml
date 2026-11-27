@@ -1,0 +1,15 @@
+# Atelier library server for a NAS: stores and serves artworks; the desktop
+# app (Settings → "On a server") classifies and uploads to it.
+#   ATELIER_DATA=/volume1/media/atelier_gallery docker compose -f docker-compose.nas.yml up -d --build
+name: atelier-server
+
+services:
+  backend:
+    build: ./backend
+    container_name: atelier_server
+    restart: unless-stopped
+    ports:
+      - "${ATELIER_PORT:-8010}:8000"
+    volumes:
+      - ${ATELIER_DATA:?set ATELIER_DATA to the library folder}:/app/data
+    mem_limit: 512m
