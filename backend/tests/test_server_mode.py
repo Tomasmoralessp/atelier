@@ -82,18 +82,79 @@ def test_ingest_rejects_mismatched_content(start_app, monkeypatch):
     assert client.get("/artworks/").json() == []
 
 
-def test_server_without_clip_stores_uploads_with_colors_only(
-    start_app, monkeypatch, mixed_folder
-):
+def test_uploads_to_server_wait_in_queue(start_app, monkeypatch, mixed_folder):
     monkeypatch.setenv("ATELIER_MODE", "remote")
-    client = start_app(fake_model=False)
-    import pipeline.orchestrator
-
-    monkeypatch.setattr(pipeline.orchestrator, "CLIP_AVAILABLE", False)
+    client = start_app()
     png = (mixed_folder / "blue.png").read_bytes()
     summary = client.post("/artworks", files=[("files", ("blue.png", png, "image/png"))]).json()
 
     assert summary["imported"] == ["blue.png"]
     [artwork] = client.get("/artworks/").json()
-    assert artwork["image_type"] is None
-    assert artwork["colors"]
+    assert artwork["classified"] is False and artwork["image_type"] is None
+    queue = client.get("/queue").json()
+    assert queue["pending"] == 1 and queue["items"][0]["id"] == artwork["id"]
+
+
+def test_analysis_leaves_queue_and_keeps_reviewed_fields(start_app, monkeypatch, mixed_folder):
+    monkeypatch.setenv("ATELIER_MODE", "remote")
+    client = start_app()
+    for name in ("blue.png", "series/red.jpg"):
+        data = (mixed_folder / name).read_bytes()
+        client.post("/artworks", files=[("files", (name, data, "image/png"))])
+    first, second = client.get("/artworks/").json()
+    client.patch(f"/artworks/{second['id']}", params={"image_type": "drawing", "reviewed": True})
+
+    analysis = {
+        "image_type": "painting",
+        "colors": [{"rgb": [1, 2, 3], "lab": [1.0, 0.0, 0.0], "percentage": 100.0}],
+    }
+    for artwork in (first, second):
+        assert client.put(f"/artworks/{artwork['id']}/analysis", json=analysis).status_code == 200
+
+    by_id = {a["id"]: a for a in client.get("/artworks/").json()}
+    assert by_id[first["id"]]["image_type"] == "painting"
+    assert by_id[second["id"]]["image_type"] == "drawing"  # person's choice wins
+    assert all(a["classified"] and a["colors"] for a in by_id.values())
+    assert client.get("/queue").json()["pending"] == 0
+
+
+def test_inbox_moves_files_into_queue(start_app, monkeypatch, mixed_folder, tmp_path):
+    import os
+    import shutil
+
+    monkeypatch.setenv("ATELIER_MODE", "remote")
+    client = start_app()
+    inbox = tmp_path / "library" / "inbox"
+    shutil.copytree(mixed_folder, inbox / "ari")
+    for path in inbox.rglob("*"):
+        os.utime(path, (0, 0))  # look fully copied
+
+    from pipeline import inbox as inbox_module
+
+    inbox_module.process_inbox_once()
+
+    artworks = client.get("/artworks/").json()
+    assert len(artworks) == 2 and not any(a["classified"] for a in artworks)
+    assert all(client.get(a["thumb_url"]).status_code == 200 for a in artworks)
+    skipped = sorted(p.name for p in (inbox / "_skipped").rglob("*") if p.is_file())
+    assert skipped == ["blue-copy.png", "broken.png", "notes.txt"]
+    leftovers = [p.name for p in inbox.rglob("*") if p.is_file() and "_skipped" not in p.parts]
+    assert leftovers == [".DS_Store"]  # hidden files are left alone
+
+
+def test_desktop_worker_classifies_server_queue(start_app, monkeypatch, server, mixed_folder, tmp_path):
+    url, _ = server
+    for name in ("blue.png", "series/red.jpg"):
+        httpx.post(f"{url}/artworks", files=[("files", (name, (mixed_folder / name).read_bytes()))])
+    assert httpx.get(f"{url}/queue").json()["pending"] == 2
+
+    monkeypatch.setenv("ATELIER_SERVER_URL", url)
+    start_app(tmp_path / "local")
+    from pipeline import worker
+
+    with httpx.Client() as client:
+        assert worker.process_queue_once(client) == 2
+        assert worker.process_queue_once(client) == 0
+
+    artworks = httpx.get(f"{url}/artworks/").json()
+    assert all(a["classified"] and a["image_type"] == "painting" for a in artworks)

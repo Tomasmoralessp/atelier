@@ -4,7 +4,6 @@ Storage goes to the local library, or, when ATELIER_SERVER_URL is set, to a
 remote Atelier server (the NAS). Classification always runs on this machine.
 """
 
-import importlib.util
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,9 +21,6 @@ from pipeline.storage import is_readable_image, store_file
 
 NUM_COLOR_PALETTE = 5
 
-# The NAS server image ships without PyTorch/CLIP: images uploaded straight
-# to it are stored with colors only and can be classified by hand.
-CLIP_AVAILABLE = importlib.util.find_spec("open_clip") is not None
 
 
 @dataclass
@@ -44,8 +40,6 @@ def _classify(images: list[dict]) -> None:
         item["colors"] = pipeline.colors.process_and_extract_color_palette(
             image_path=item["source"], num_colors=NUM_COLOR_PALETTE
         )
-    if not CLIP_AVAILABLE:
-        return
 
     from pipeline import classification, embeddings as clip  # needs PyTorch
 
@@ -73,6 +67,31 @@ def _classify(images: list[dict]) -> None:
                 images[i][field_name] = result["category"]
 
 
+def classify_safely(images: list[dict]) -> list[dict]:
+    """Classify in one batch; if that fails, retry one by one so a single
+    bad file cannot sink the rest. Returns the items that failed."""
+    try:
+        _classify(images)
+        return []
+    except Exception:
+        failed = []
+        for item in images:
+            try:
+                _classify([item])
+            except Exception:
+                failed.append(item)
+        return failed
+
+
+def analysis_fields(item: dict) -> dict:
+    return {
+        "image_type": item.get("image_type"),
+        "subject": item.get("subject"),
+        "art_technique": item.get("art_technique"),
+        "colors": item.get("colors", []),
+    }
+
+
 def artwork_metadata(item: dict) -> dict:
     """The analysis result of one file, as stored and as sent to a server."""
     return {
@@ -86,7 +105,19 @@ def artwork_metadata(item: dict) -> dict:
     }
 
 
-def save_artwork(session: Session, metadata: dict, source: Path, copy: bool) -> None:
+def add_colors(session: Session, artwork_id: str, colors: list[dict]) -> None:
+    for color in colors:
+        session.add(ArtworkColor(
+            artwork_id=artwork_id,
+            r=color["rgb"][0], g=color["rgb"][1], b=color["rgb"][2],
+            l_value=color["lab"][0], a_value=color["lab"][1], b_value=color["lab"][2],
+            percentage=color["percentage"],
+        ))
+
+
+def save_artwork(
+    session: Session, metadata: dict, source: Path, copy: bool, classified: bool = True
+) -> None:
     """Put the file in the library and add its rows (caller commits)."""
     folder = "videos" if metadata["file_type"] == FileType.video.value else "images"
     relative = Path(folder) / f"{metadata['id']}.{metadata['file_extension']}"
@@ -99,14 +130,9 @@ def save_artwork(session: Session, metadata: dict, source: Path, copy: bool) -> 
         image_type=metadata.get("image_type"),
         subject=metadata.get("subject"),
         art_technique=metadata.get("art_technique"),
+        classified=classified,
     ))
-    for color in metadata.get("colors", []):
-        session.add(ArtworkColor(
-            artwork_id=metadata["id"],
-            r=color["rgb"][0], g=color["rgb"][1], b=color["rgb"][2],
-            l_value=color["lab"][0], a_value=color["lab"][1], b_value=color["lab"][2],
-            percentage=color["percentage"],
-        ))
+    add_colors(session, metadata["id"], metadata.get("colors", []))
 
 
 def artwork_exists(session: Session, artwork_id: str) -> bool:
@@ -156,8 +182,14 @@ def process_batch(
     items = [item for item in items if item["id"] not in known]
 
     images = [item for item in items if item["file_type"] == FileType.image]
-    if images:
-        _classify(images)
+    # A server never classifies: images uploaded straight to it wait in the
+    # queue (classified=False) until a desktop app does it (pipeline/worker.py).
+    queue_images = settings.MODE == "remote"
+    if images and not queue_images:
+        failed = classify_safely(images)
+        for item in failed:
+            summary.skipped.append({"name": item["name"], "reason": "could not be processed"})
+        items = [item for item in items if item not in failed]
 
     if settings.SERVER_URL:
         for item in items:
@@ -167,7 +199,11 @@ def process_batch(
 
     try:
         for item in items:
-            save_artwork(session, artwork_metadata(item), item["source"], copy=copy)
+            pending = queue_images and item["file_type"] == FileType.image
+            save_artwork(
+                session, artwork_metadata(item), item["source"], copy=copy,
+                classified=not pending,
+            )
             summary.imported.append(item["name"])
         session.commit()
     except Exception:

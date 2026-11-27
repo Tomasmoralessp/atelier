@@ -20,6 +20,8 @@ class Artwork(Base):
         Enum(ArtTechnique), nullable=True
     )
     reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # False while waiting in the queue for a desktop app to classify it.
+    classified: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     colors: Mapped[list["ArtworkColor"]] = relationship(
         "ArtworkColor", back_populates="artwork", cascade="all, delete-orphan"
     )

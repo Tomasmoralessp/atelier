@@ -20,6 +20,7 @@ import settings
 from pipeline.hashing import compute_hash
 from pipeline.orchestrator import artwork_exists, process_batch, save_artwork
 from pipeline.storage import save_upload_to_temp
+from pipeline.thumbnails import thumb_path
 from pipeline.colors import rgb_to_lab, lab_distance
 from database.models import Artwork, ArtworkTag, ArtworkColor
 from database.engine import get_session
@@ -235,6 +236,7 @@ def delete_artworks(
                 404, detail=f"Artwork with id {artwork_id} was not found."
             )
         settings.resolve_media_path(artwork.file_path).unlink(missing_ok=True)
+        thumb_path(artwork.id).unlink(missing_ok=True)
         session.delete(artwork)
     session.commit()
     return True

@@ -30,6 +30,9 @@ IMAGES_DIR = DATA_DIR / "images"
 VIDEOS_DIR = DATA_DIR / "videos"
 TEMP_DIR = DATA_DIR / "temp"
 MODELS_DIR = DATA_DIR / "models"
+THUMBS_DIR = DATA_DIR / "thumbs"
+# Server only: files dropped here (e.g. over SMB) join the queue.
+INBOX_DIR = DATA_DIR / "inbox"
 
 MODEL_PATH = os.environ.get("ATELIER_MODEL_PATH") or None
 
@@ -41,7 +44,10 @@ LOCAL_IMPORT_ENABLED = MODE == "local"
 
 
 def ensure_data_dirs() -> None:
-    for directory in (DATA_DIR, IMAGES_DIR, VIDEOS_DIR, TEMP_DIR, MODELS_DIR):
+    directories = [DATA_DIR, IMAGES_DIR, VIDEOS_DIR, TEMP_DIR, MODELS_DIR, THUMBS_DIR]
+    if MODE == "remote":
+        directories.append(INBOX_DIR)
+    for directory in directories:
         directory.mkdir(parents=True, exist_ok=True)
 
 

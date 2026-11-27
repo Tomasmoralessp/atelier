@@ -29,8 +29,10 @@ class ArtworkResponse(BaseModel):
     art_technique: Optional[ArtTechnique] = None
     tags: list[TagResponse] = []
     reviewed: bool
+    classified: bool = True
     colors: list[ColorResponse] = []
     file_url: str = ""
+    thumb_url: Optional[str] = None
 
     @field_validator("tags", mode="before")
     @classmethod
@@ -42,6 +44,8 @@ class ArtworkResponse(BaseModel):
     def build_file_url(self):
         folder = "videos" if self.file_type == "video" else "images"
         self.file_url = f"/{folder}/{self.id}.{self.file_extension}"
+        if self.file_type == "image":
+            self.thumb_url = f"/thumbs/{self.id}.jpg"
         return self
 
 
@@ -90,6 +94,14 @@ class IngestColor(BaseModel):
     rgb: list[int]
     lab: list[float]
     percentage: float
+
+
+class ArtworkAnalysis(BaseModel):
+    """What a desktop app computed for a queued artwork."""
+    image_type: Optional[ImageType] = None
+    subject: Optional[Subject] = None
+    art_technique: Optional[ArtTechnique] = None
+    colors: list[IngestColor] = []
 
 
 class IngestMetadata(BaseModel):
