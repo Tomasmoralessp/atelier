@@ -27,8 +27,12 @@ def process_queue_once(client: httpx.Client) -> int:
     status["pending"] = queue["pending"]
     items = []
     for artwork in queue["items"]:
-        source = settings.TEMP_DIR / f"queue-{artwork['id']}.{artwork['file_extension']}"
-        with client.stream("GET", f"{settings.SERVER_URL}{artwork['file_url']}") as download:
+        # The 480px thumbnail is plenty (CLIP sees 224px, colors 300px) and
+        # is ~30x smaller to download than the original.
+        url = artwork.get("thumb_url") or artwork["file_url"]
+        extension = "jpg" if artwork.get("thumb_url") else artwork["file_extension"]
+        source = settings.TEMP_DIR / f"queue-{artwork['id']}.{extension}"
+        with client.stream("GET", f"{settings.SERVER_URL}{url}") as download:
             download.raise_for_status()
             with source.open("wb") as f:
                 for chunk in download.iter_bytes():
