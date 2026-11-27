@@ -147,8 +147,11 @@ export function SettingsDialog() {
             <Input
               value={draft.apiBase}
               onChange={(e) => setDraft({ ...draft, apiBase: e.target.value })}
-              placeholder="http://192.168.1.20:8000"
+              placeholder="http://home-nas.local:8010"
             />
+            <p className="text-xs text-muted-foreground">
+              Images are classified on this computer and stored on the server.
+            </p>
           </div>
         )}
 

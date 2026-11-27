@@ -1,7 +1,11 @@
+/** Where the library lives: the local backend, or a server such as the NAS. */
 export let API_BASE = "";
+/** The backend on this computer, which classifies imports (same as API_BASE in local mode). */
+export let LOCAL_BASE = "";
 
-export function setApiBase(url: string) {
+export function setApiBase(url: string, localUrl: string = url) {
   API_BASE = url;
+  LOCAL_BASE = localUrl;
 }
 
 export type FileType = "image" | "video";
@@ -100,12 +104,17 @@ export function mergeSummary(into: ImportSummary, next: ImportSummary) {
   into.skipped.push(...next.skipped);
 }
 
-function postJson<T>(path: string, body: unknown) {
-  return request<T>(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+/** POST to the local backend (imports and backups always run on this computer). */
+function postLocal<T>(path: string, body: unknown) {
+  return request<T>(
+    path,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    LOCAL_BASE,
+  );
 }
 
 export function assetUrl(fileUrl: string) {
@@ -119,8 +128,8 @@ export function labelize(value: string | null | undefined) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
+async function request<T>(path: string, init?: RequestInit, base = API_BASE): Promise<T> {
+  const res = await fetch(`${base}${path}`, init);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Request failed (${res.status})`);
@@ -147,11 +156,11 @@ function toSearch(filters: ArtworkFilters) {
 }
 
 export const api = {
-  health: () => request<Health>(`/health`),
+  health: (base = API_BASE) => request<Health>(`/health`, undefined, base),
   scanFolder: (folder: string) =>
-    postJson<{ files: string[]; skipped: ImportSummary["skipped"] }>(`/import/scan`, { folder }),
-  importFiles: (paths: string[]) => postJson<ImportSummary>(`/import/files`, { paths }),
-  backup: (destination: string) => postJson<BackupResult>(`/backup`, { destination }),
+    postLocal<{ files: string[]; skipped: ImportSummary["skipped"] }>(`/import/scan`, { folder }),
+  importFiles: (paths: string[]) => postLocal<ImportSummary>(`/import/files`, { paths }),
+  backup: (destination: string) => postLocal<BackupResult>(`/backup`, { destination }),
   listArtworks: (filters: ArtworkFilters) => request<Artwork[]>(`/artworks/${toSearch(filters)}`),
   getArtwork: (id: string) => request<Artwork>(`/artworks/${id}`),
   extensions: () => request<string[]>(`/artworks/extensions`),
@@ -193,7 +202,7 @@ export const api = {
       const form = new FormData();
       files.forEach((f) => form.append("files", f));
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `${API_BASE}/artworks`);
+      xhr.open("POST", `${LOCAL_BASE}/artworks`);
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
       };

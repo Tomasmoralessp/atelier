@@ -3,7 +3,6 @@ import { FolderInput, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api, emptySummary, mergeSummary, type ImportSummary } from "@/lib/api";
-import { currentConfig } from "@/lib/config";
 import { useInvalidateArtworks } from "@/lib/queries";
 import { isTauri } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,7 +25,7 @@ export function UploadZone() {
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const invalidate = useInvalidateArtworks();
-  const canImportFolder = isTauri && currentConfig.mode === "local";
+  const canImportFolder = isTauri;
   const busy = progress !== null;
 
   const run = async <T,>(

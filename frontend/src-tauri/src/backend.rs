@@ -65,11 +65,13 @@ pub fn default_data_dir(app: AppHandle) -> Result<String, String> {
 }
 
 /// (Re)start the local backend on a free port and return its base URL.
+/// With `server_url` it classifies imports and stores them on that server.
 #[tauri::command]
 pub fn start_backend(
     app: AppHandle,
     state: State<'_, BackendProcess>,
     data_dir: String,
+    server_url: Option<String>,
 ) -> Result<String, String> {
     state.stop();
 
@@ -79,8 +81,12 @@ pub fn start_backend(
     let log = File::create(log_dir.join("backend.log")).map_err(|e| e.to_string())?;
     let log_err = log.try_clone().map_err(|e| e.to_string())?;
 
-    let child = backend_command(&app)?
-        .args(["--data-dir", &data_dir, "--port", &port.to_string()])
+    let mut command = backend_command(&app)?;
+    command.args(["--data-dir", &data_dir, "--port", &port.to_string()]);
+    if let Some(url) = server_url.filter(|url| !url.is_empty()) {
+        command.args(["--server-url", &url]);
+    }
+    let child = command
         .env("ATELIER_MODE", "local")
         .stdin(Stdio::null())
         .stdout(Stdio::from(log))
