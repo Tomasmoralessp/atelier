@@ -39,7 +39,7 @@
     },
     "resources": {
       "../../backend/dist/atelier-backend/": "backend/",
-      "../../backend/models/RN50-openai.safetensors": "models/RN50-openai.safetensors"
+      "../../backend/models/clip.safetensors": "models/clip.safetensors"
     }
   }
 }

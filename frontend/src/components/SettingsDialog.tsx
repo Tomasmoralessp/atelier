@@ -150,7 +150,9 @@ export function SettingsDialog() {
               placeholder="http://home-nas.local:8010"
             />
             <p className="text-xs text-muted-foreground">
-              Images are classified on this computer and stored on the server.
+              Images are classified on this computer and stored on the server. Files copied
+              into the server&apos;s <span className="font-mono">inbox</span> folder join the
+              queue and are classified while this app is open.
             </p>
           </div>
         )}

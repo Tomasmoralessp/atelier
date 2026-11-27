@@ -11,7 +11,13 @@ import {
 import { toast } from "sonner";
 
 import { api, assetUrl, type ArtworkFilters } from "@/lib/api";
-import { useArtworks, useDeleteArtworks, useInvalidateArtworks, useTags } from "@/lib/queries";
+import {
+  useArtworks,
+  useDeleteArtworks,
+  useInvalidateArtworks,
+  useQueue,
+  useTags,
+} from "@/lib/queries";
 import { loadFilters, saveFilters } from "@/lib/filterStore";
 import { isTauri } from "@/lib/utils";
 
@@ -46,6 +52,37 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+const PAGE_SIZE = 120;
+
+function LoadMore({ onVisible }: { onVisible: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => entries.some((e) => e.isIntersecting) && onVisible(),
+      { rootMargin: "800px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onVisible]);
+  return <div ref={ref} className="h-px" />;
+}
+
+function QueueBadge() {
+  const pending = useQueue();
+  if (!pending) return null;
+  return (
+    <span
+      title="Waiting to be classified. Any Atelier app open in server mode works through the queue."
+      className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground"
+    >
+      <Loader2 className="size-3 animate-spin" />
+      {pending} in queue
+    </span>
+  );
+}
+
 export default function GridPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -59,6 +96,9 @@ export default function GridPage() {
   const invalidate = useInvalidateArtworks();
   const deleteArtworks = useDeleteArtworks();
   const [applying, setApplying] = useState(false);
+  // Render the grid in pages: thousands of cards at once make scrolling slow.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const showMore = () => setVisibleCount((n) => n + PAGE_SIZE);
 
   useEffect(() => setFilters(loadFilters()), []);
   useEffect(() => saveFilters(filters), [filters]);
@@ -166,6 +206,7 @@ export default function GridPage() {
               {items.length} piece{items.length === 1 ? "" : "s"} in the archive
             </p>
           </div>
+          <QueueBadge />
         </div>
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
           <Sheet>
@@ -266,7 +307,7 @@ export default function GridPage() {
           <div className="relative">
             <DragSelection />
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-              {items.map((artwork, index) => (
+              {items.slice(0, visibleCount).map((artwork, index) => (
                 <div
                   key={artwork.id}
                   ref={(el) => {
@@ -284,6 +325,7 @@ export default function GridPage() {
                 </div>
               ))}
             </div>
+            {visibleCount < items.length && <LoadMore onVisible={showMore} />}
           </div>
         </main>
       </div>

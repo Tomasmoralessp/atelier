@@ -60,6 +60,9 @@ export interface Artwork {
   art_technique: Technique | null;
   tags: Tag[];
   reviewed: boolean;
+  /** False while waiting in the queue to be classified. */
+  classified: boolean;
+  thumb_url: string | null;
   colors: ArtworkColor[];
 }
 
@@ -156,6 +159,10 @@ function toSearch(filters: ArtworkFilters) {
 }
 
 export const api = {
+  queue: () => request<{ pending: number }>(`/queue?limit=0`),
+  worker: () => request<{ enabled: boolean; processed: number; last_error: string | null }>(
+    `/worker`, undefined, LOCAL_BASE,
+  ),
   health: (base = API_BASE) => request<Health>(`/health`, undefined, base),
   scanFolder: (folder: string) =>
     postLocal<{ files: string[]; skipped: ImportSummary["skipped"] }>(`/import/scan`, { folder }),
@@ -202,7 +209,8 @@ export const api = {
       const form = new FormData();
       files.forEach((f) => form.append("files", f));
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `${LOCAL_BASE}/artworks`);
+      // Straight to the library: on a server, files join its queue at once.
+      xhr.open("POST", `${API_BASE}/artworks`);
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
       };

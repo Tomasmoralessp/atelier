@@ -32,7 +32,7 @@ fn free_port() -> Result<u16, String> {
 fn backend_command(app: &AppHandle) -> Result<Command, String> {
     let resources = app.path().resource_dir().map_err(|e| e.to_string())?;
     let binary = resources.join("backend").join("atelier-backend");
-    let weights = resources.join("models").join("RN50-openai.safetensors");
+    let weights = resources.join("models").join("clip.safetensors");
 
     if binary.exists() {
         let mut command = Command::new(binary);
@@ -47,7 +47,7 @@ fn backend_command(app: &AppHandle) -> Result<Command, String> {
         let backend_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../backend");
         let mut command = Command::new(backend_dir.join(".venv/bin/python"));
         command.arg(backend_dir.join("run.py")).current_dir(&backend_dir);
-        let dev_weights = backend_dir.join("models/RN50-openai.safetensors");
+        let dev_weights = backend_dir.join("models/clip.safetensors");
         if dev_weights.exists() {
             command.env("ATELIER_MODEL_PATH", dev_weights);
         }

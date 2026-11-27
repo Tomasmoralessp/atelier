@@ -17,7 +17,9 @@ export function ArtworkCard({
   onOpen: () => void;
 }) {
   const [flipped, setFlipped] = useState(false);
+  const [thumbFailed, setThumbFailed] = useState(false);
   const src = assetUrl(artwork.file_url);
+  const imageSrc = artwork.thumb_url && !thumbFailed ? assetUrl(artwork.thumb_url) : src;
 
   const handleClick = (e: MouseEvent) => {
     if (selectionMode || e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -43,6 +45,7 @@ export function ArtworkCard({
           {artwork.file_type === "video" ? (
             <video
               src={src}
+              preload="metadata"
               muted
               playsInline
               className="size-full object-cover"
@@ -51,11 +54,19 @@ export function ArtworkCard({
             />
           ) : (
             <img
-              src={src}
+              src={imageSrc}
               alt={labelize(artwork.image_type)}
               loading="lazy"
+              decoding="async"
+              onError={() => setThumbFailed(true)}
               className="size-full object-cover"
             />
+          )}
+
+          {!artwork.classified && (
+            <span className="absolute left-2 top-2 rounded-full bg-card/90 px-2 py-0.5 text-[10px] text-muted-foreground shadow-sm">
+              In queue
+            </span>
           )}
 
           <span

@@ -11,13 +11,17 @@ if [ ! -x backend/.venv/bin/python ]; then
 fi
 
 echo "==> Model weights (downloaded once, bundled for offline use)"
-if [ ! -f backend/models/RN50-openai.safetensors ]; then
+if [ ! -f backend/models/clip.safetensors ]; then
   mkdir -p backend/models
   backend/.venv/bin/python -c "
+import shutil, sys
+sys.path.insert(0, 'backend')
+import open_clip
 from huggingface_hub import hf_hub_download
-import shutil
-path = hf_hub_download('timm/resnet50_clip.openai', 'open_clip_model.safetensors')
-shutil.copyfile(path, 'backend/models/RN50-openai.safetensors')
+from pipeline.embeddings import MODEL_NAME, PRETRAINED
+repo = open_clip.get_pretrained_cfg(MODEL_NAME, PRETRAINED)['hf_hub'].strip('/')
+path = hf_hub_download(repo, 'open_clip_model.safetensors')
+shutil.copyfile(path, 'backend/models/clip.safetensors')
 "
 fi
 

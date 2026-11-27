@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type ArtworkFilters } from "./api";
 
@@ -64,4 +65,31 @@ export function useDeleteArtworks() {
     mutationFn: (ids: string[]) => api.deleteArtworks(ids),
     onSuccess: invalidate,
   });
+}
+
+// Reloading the whole grid is not free with thousands of pieces, so refresh
+// it every REFRESH_STEP classified artworks, and when the queue empties.
+const REFRESH_STEP = 40;
+
+/** How many artworks wait to be classified; refreshes the grid as they finish. */
+export function useQueue() {
+  const invalidate = useInvalidateArtworks();
+  const lastRefresh = useRef<number | null>(null);
+  const query = useQuery({
+    queryKey: ["queue"],
+    queryFn: api.queue,
+    refetchInterval: 10_000,
+  });
+  const pending = query.data?.pending ?? 0;
+  useEffect(() => {
+    const previous = lastRefresh.current;
+    if (previous === null || pending > previous) {
+      if (previous !== null) invalidate(); // new uploads arrived
+      lastRefresh.current = pending;
+    } else if (previous - pending >= REFRESH_STEP || (pending === 0 && previous > 0)) {
+      invalidate();
+      lastRefresh.current = pending;
+    }
+  }, [pending, invalidate]);
+  return pending;
 }
