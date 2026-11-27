@@ -33,3 +33,5 @@ Thumbs.db
 *.tsbuildinfo
 *.tsbuildinfo
 backend/models/
+backend/build/
+backend/dist/

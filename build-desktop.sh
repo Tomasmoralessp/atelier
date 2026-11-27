@@ -1,19 +1,30 @@
 #!/bin/bash
+# Build the standalone desktop app (frontend + bundled backend + model weights).
+# Output: frontend/src-tauri/target/release/bundle/
+set -euo pipefail
+cd "$(dirname "$0")"
 
-# Build desktop applications for Atelier Gallery
-echo "Building desktop applications..."
-
-cd frontend
-
-# Check if Tauri is installed
-if ! command -v tauri &> /dev/null; then
-    echo "Tauri CLI not found. Installing..."
-    npm install -g @tauri-apps/cli
+echo "==> Backend environment"
+if [ ! -x backend/.venv/bin/python ]; then
+  python3.11 -m venv backend/.venv
+  backend/.venv/bin/pip install -q -r backend/requirements.txt pyinstaller
 fi
 
-# Build the application for all platforms
-echo "Building for all platforms..."
-npm run tauri build
+echo "==> Model weights (downloaded once, bundled for offline use)"
+if [ ! -f backend/models/RN50-openai.safetensors ]; then
+  mkdir -p backend/models
+  backend/.venv/bin/python -c "
+from huggingface_hub import hf_hub_download
+import shutil
+path = hf_hub_download('timm/resnet50_clip.openai', 'open_clip_model.safetensors')
+shutil.copy(path, 'backend/models/RN50-openai.safetensors')
+"
+fi
 
-echo "Desktop applications built successfully!"
-echo "Check frontend/src-tauri/target/release/bundle/ for the built files."
+echo "==> Backend binary"
+(cd backend && .venv/bin/pyinstaller atelier-backend.spec --noconfirm --log-level ERROR)
+
+echo "==> Desktop app"
+(cd frontend && npm ci && npm run tauri build)
+
+echo "Done: frontend/src-tauri/target/release/bundle/"
