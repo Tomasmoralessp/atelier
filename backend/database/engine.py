@@ -1,21 +1,17 @@
-from pathlib import Path
-import os
-
 from sqlalchemy import create_engine
-
 from sqlalchemy.orm import sessionmaker
+
+import settings
 from database.models import Base
 
+settings.ensure_data_dirs()
 
-DB_PATH = Path(
-    os.environ.get("DB_PATH")
-    or Path(__file__).resolve().parent.parent / "data" / "atelier.db"
+engine = create_engine(
+    f"sqlite:///{settings.DB_PATH}", connect_args={"check_same_thread": False}
 )
 
-
-engine = create_engine(f"sqlite:///{DB_PATH}")
-
-
+# No Alembic yet: the schema has never changed, so creating missing tables on
+# startup is the whole migration story for now.
 Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)

@@ -22,3 +22,9 @@ __pycache__/
 
 # Env variables
 .env
+
+# Bundled model weights and build output (desktop app only)
+models/
+build/
+dist/
+tests/

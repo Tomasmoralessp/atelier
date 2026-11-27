@@ -14,6 +14,8 @@ services:
         target: /app/data
     environment:
       - PYTHONPATH=/app
+      - ATELIER_MODE=remote
+      - ATELIER_DATA_DIR=/app/data
   frontend:
     build: ./frontend
     container_name: vite_frontend
