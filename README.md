@@ -63,6 +63,7 @@ Digital art collections grow messy fast: thousands of files, no consistent names
 5. Data lives in `~/Library/Application Support/Atelier` (`atelier.db` + `images/`); change it in Settings.
 6. Back up: Settings → **Back up now** to any folder (external disk, a NAS share), or just copy the data folder.
 7. NAS: run `docker-compose.nas.yml` on the NAS, then Settings → **On a server**. The Mac classifies, the NAS stores.
+   Files copied into the NAS `inbox/` folder join a queue that any open desktop app works through.
 
 **Web (Docker)**
 
