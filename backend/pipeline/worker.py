@@ -19,6 +19,17 @@ ERROR_SECONDS = 60
 status = {"processed": 0, "pending": None, "last_error": None}
 
 
+def _download(client: httpx.Client, url: str, target) -> bool:
+    with client.stream("GET", url) as response:
+        if response.status_code == 404:
+            return False
+        response.raise_for_status()
+        with target.open("wb") as f:
+            for chunk in response.iter_bytes():
+                f.write(chunk)
+    return True
+
+
 def process_queue_once(client: httpx.Client) -> int:
     """Classify one batch from the server queue. Returns how many were done."""
     response = client.get(f"{settings.SERVER_URL}/queue", params={"limit": BATCH_SIZE})
@@ -28,19 +39,28 @@ def process_queue_once(client: httpx.Client) -> int:
     items = []
     for artwork in queue["items"]:
         # The 480px thumbnail is plenty (CLIP sees 224px, colors 300px) and
-        # is ~30x smaller to download than the original.
-        url = artwork.get("thumb_url") or artwork["file_url"]
-        extension = "jpg" if artwork.get("thumb_url") else artwork["file_extension"]
-        source = settings.TEMP_DIR / f"queue-{artwork['id']}.{extension}"
-        with client.stream("GET", f"{settings.SERVER_URL}{url}") as download:
-            download.raise_for_status()
-            with source.open("wb") as f:
-                for chunk in download.iter_bytes():
-                    f.write(chunk)
-        items.append({"id": artwork["id"], "source": source, "name": artwork["id"]})
+        # is ~30x smaller to download than the original. Fall back to the
+        # original when the server could not make a thumbnail.
+        candidates = [("jpg", artwork.get("thumb_url")),
+                      (artwork["file_extension"], artwork["file_url"])]
+        source = None
+        for extension, url in candidates:
+            if not url:
+                continue
+            path = settings.TEMP_DIR / f"queue-{artwork['id']}.{extension}"
+            if _download(client, f"{settings.SERVER_URL}{url}", path):
+                source = path
+                break
+        # A file that cannot be downloaded still leaves the queue (unclassified)
+        # so it never blocks the items behind it.
+        items.append({"id": artwork["id"], "source": source or settings.TEMP_DIR / "missing",
+                      "name": artwork["id"]})
 
     try:
-        readable = [item for item in items if is_readable_image(item["source"])]
+        readable = [
+            item for item in items
+            if item["source"].exists() and is_readable_image(item["source"])
+        ]
         failed = classify_safely(readable) if readable else []
         for item in items:
             # Unreadable files still leave the queue, just without a classification.
