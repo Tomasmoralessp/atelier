@@ -71,6 +71,43 @@ export interface ArtworkFilters {
   file_extension?: string;
 }
 
+export interface ImportSummary {
+  imported: string[];
+  duplicates: string[];
+  skipped: { name: string; reason: string }[];
+}
+
+export interface Health {
+  status: string;
+  mode: "local" | "remote";
+  data_dir: string;
+  local_import: boolean;
+}
+
+export interface BackupResult {
+  backup_dir: string;
+  files_copied: number;
+  finished_at: string;
+}
+
+export function emptySummary(): ImportSummary {
+  return { imported: [], duplicates: [], skipped: [] };
+}
+
+export function mergeSummary(into: ImportSummary, next: ImportSummary) {
+  into.imported.push(...next.imported);
+  into.duplicates.push(...next.duplicates);
+  into.skipped.push(...next.skipped);
+}
+
+function postJson<T>(path: string, body: unknown) {
+  return request<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 export function assetUrl(fileUrl: string) {
   if (!fileUrl) return "";
   if (/^https?:\/\//.test(fileUrl)) return fileUrl;
@@ -110,6 +147,11 @@ function toSearch(filters: ArtworkFilters) {
 }
 
 export const api = {
+  health: () => request<Health>(`/health`),
+  scanFolder: (folder: string) =>
+    postJson<{ files: string[]; skipped: ImportSummary["skipped"] }>(`/import/scan`, { folder }),
+  importFiles: (paths: string[]) => postJson<ImportSummary>(`/import/files`, { paths }),
+  backup: (destination: string) => postJson<BackupResult>(`/backup`, { destination }),
   listArtworks: (filters: ArtworkFilters) => request<Artwork[]>(`/artworks/${toSearch(filters)}`),
   getArtwork: (id: string) => request<Artwork>(`/artworks/${id}`),
   extensions: () => request<string[]>(`/artworks/extensions`),
@@ -147,7 +189,7 @@ export const api = {
     return request<Artwork>(`/artworks/${id}${q ? `?${q}` : ""}`, { method: "PATCH" });
   },
   upload: (files: File[], onProgress?: (pct: number) => void) =>
-    new Promise<Artwork[]>((resolve, reject) => {
+    new Promise<ImportSummary>((resolve, reject) => {
       const form = new FormData();
       files.forEach((f) => form.append("files", f));
       const xhr = new XMLHttpRequest();
@@ -160,7 +202,7 @@ export const api = {
           try {
             resolve(JSON.parse(xhr.responseText));
           } catch {
-            resolve([]);
+            reject(new Error("Unexpected response from server"));
           }
         } else reject(new Error(xhr.responseText || `Upload failed (${xhr.status})`));
       };
