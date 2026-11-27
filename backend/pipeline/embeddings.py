@@ -6,8 +6,10 @@ import torch
 import settings
 from .colors import convert_to_rgb
 
-MODEL_NAME = "RN50"
-PRETRAINED = "openai"
+# ViT-B-32 trained on LAION-2B: clearly better than RN50 on artwork, and fast
+# enough on a laptop. Bundled weights: backend/models/clip.safetensors.
+MODEL_NAME = "ViT-B-32"
+PRETRAINED = "laion2b_s34b_b79k"
 
 _model = None
 _preprocess = None
