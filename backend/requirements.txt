@@ -1,6 +1,5 @@
 numpy
 scikit-learn
-matplotlib
 pillow
 open_clip_torch
 torch

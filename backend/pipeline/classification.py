@@ -1,11 +1,6 @@
 import torch
 import open_clip
-from typing import Dict, List, Tuple
-
-from PIL import Image
-import matplotlib.pyplot as plt
-
-from .embeddings import get_model
+from .embeddings import MODEL_NAME, get_model
 
 
 # Global model instance for reuse
@@ -15,12 +10,11 @@ _tokenizer = None
 def get_global_model():
     global _model, _tokenizer
     if _model is None:
-        # Use the same model that's used for embeddings (RN50)
         _model, _ = get_model()
-        _tokenizer = open_clip.get_tokenizer("RN50")  # Match the model we're using
+        _tokenizer = open_clip.get_tokenizer(MODEL_NAME)
     return _model, _tokenizer
 
-# Cache: id(category_prompts) -> (categories, text_embeddings ya apiladas)
+# Cache: id(category_prompts) -> (categories, stacked text embeddings)
 _category_embedding_cache: dict[int, tuple[list, torch.Tensor]] = {}
 
 
@@ -47,14 +41,6 @@ def get_category_text_embeddings(category_prompts: dict) -> tuple[list, torch.Te
 
     _category_embedding_cache[cache_key] = (categories, text_embeddings)
     return categories, text_embeddings
-
-
-def show_prediction(image_path: str, predicted_category: str, confidence: float):
-    image = Image.open(image_path)
-    plt.imshow(image)
-    plt.title(f"{predicted_category} ({confidence:.2f})")
-    plt.axis("off")  
-    plt.show()
 
 
 def classify_zero_shot_batch(
