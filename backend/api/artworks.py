@@ -1,6 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, UploadFile, HTTPException, Query
+import json
+
+from fastapi import APIRouter, Depends, Form, UploadFile, HTTPException, Query
 from sqlalchemy import select
 
 from schemas.artwork import (
@@ -9,11 +11,14 @@ from schemas.artwork import (
     ArtworkFilter,
     ArtworkDeleteRequest,
     ImportSummaryResponse,
+    IngestMetadata,
+    KnownIdsRequest,
 )
 from sqlalchemy.orm import Session
 
 import settings
-from pipeline.orchestrator import process_batch
+from pipeline.hashing import compute_hash
+from pipeline.orchestrator import artwork_exists, process_batch, save_artwork
 from pipeline.storage import save_upload_to_temp
 from pipeline.colors import rgb_to_lab, lab_distance
 from database.models import Artwork, ArtworkTag, ArtworkColor
@@ -130,6 +135,39 @@ async def post_artworks(
         for path in temp_paths:
             path.unlink(missing_ok=True)
     return ImportSummaryResponse.model_validate(summary, from_attributes=True)
+
+
+@router.post("/known")
+def known_artworks(request: KnownIdsRequest, session: Session = Depends(get_session)):
+    """Which of these ids are already in the library (lets clients skip work)."""
+    query = select(Artwork.id).where(Artwork.id.in_(request.ids))
+    return {"known": [row[0] for row in session.execute(query)]}
+
+
+@router.post("/ingest")
+async def ingest_artwork(
+    file: UploadFile,
+    metadata: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    """Store a file a client has already classified (e.g. the desktop app
+    sending to the NAS). The id must match the file's content hash."""
+    try:
+        meta = IngestMetadata.model_validate(json.loads(metadata))
+    except ValueError as e:
+        raise HTTPException(422, detail=f"Invalid metadata: {e}")
+
+    temp_path = await save_upload_to_temp(file=file, temp_dir=settings.TEMP_DIR)
+    try:
+        if compute_hash(temp_path) != meta.id:
+            raise HTTPException(400, detail="File content does not match its id")
+        if artwork_exists(session, meta.id):
+            return {"status": "duplicate"}
+        save_artwork(session, meta.model_dump(mode="json"), temp_path, copy=False)
+        session.commit()
+    finally:
+        temp_path.unlink(missing_ok=True)
+    return {"status": "imported"}
 
 
 @router.patch("/{artwork_id}", response_model=ArtworkResponse)

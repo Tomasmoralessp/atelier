@@ -5,7 +5,6 @@ from pathlib import Path
 
 from skimage.color import rgb2lab
 import numpy as np
-from sklearn import cluster
 
 
 DOWNSAMPLED_SIZE = (300, 300)
@@ -41,6 +40,8 @@ def convert_to_numpy_array(image: Image.Image) -> np.ndarray:
 
 
 def extract_color_palette(image_array: np.ndarray, num_colors: int) -> list[dict]:
+    from sklearn import cluster  # heavy; only needed when importing
+
     kmeans = cluster.KMeans(n_clusters=num_colors).fit(image_array)
     cluster_centers = kmeans.cluster_centers_
     pixel_counts_per_cluster = np.bincount(kmeans.labels_)

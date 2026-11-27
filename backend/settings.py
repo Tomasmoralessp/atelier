@@ -3,6 +3,7 @@
 ATELIER_MODE      local (default) | remote
 ATELIER_DATA_DIR  folder holding atelier.db, images/, videos/ ...
 ATELIER_MODEL_PATH optional path to bundled CLIP weights (offline use)
+ATELIER_SERVER_URL local mode only: classify here, store on this server (NAS)
 """
 
 import os
@@ -31,6 +32,8 @@ TEMP_DIR = DATA_DIR / "temp"
 MODELS_DIR = DATA_DIR / "models"
 
 MODEL_PATH = os.environ.get("ATELIER_MODEL_PATH") or None
+
+SERVER_URL = (os.environ.get("ATELIER_SERVER_URL") or "").rstrip("/") or None
 
 # Importing straight from a folder on disk only makes sense when the backend
 # runs on the user's own machine.

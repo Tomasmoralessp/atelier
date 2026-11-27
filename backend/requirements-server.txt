@@ -1,0 +1,11 @@
+# Server (NAS) image: stores and serves the library. No PyTorch/CLIP —
+# the desktop app classifies before uploading.
+numpy
+scikit-learn
+scikit-image
+pillow
+sqlalchemy
+pydantic
+fastapi[standard]
+python-multipart
+uvicorn

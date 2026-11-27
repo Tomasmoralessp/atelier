@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -80,3 +80,30 @@ class ImportSummaryResponse(BaseModel):
     imported: list[str] = []
     duplicates: list[str] = []
     skipped: list[SkippedFile] = []
+
+
+class KnownIdsRequest(BaseModel):
+    ids: list[str]
+
+
+class IngestColor(BaseModel):
+    rgb: list[int]
+    lab: list[float]
+    percentage: float
+
+
+class IngestMetadata(BaseModel):
+    id: str
+    file_type: Literal["image", "video"]
+    file_extension: str
+    image_type: Optional[ImageType] = None
+    subject: Optional[Subject] = None
+    art_technique: Optional[ArtTechnique] = None
+    colors: list[IngestColor] = []
+
+    @field_validator("file_extension")
+    @classmethod
+    def plain_extension(cls, value: str) -> str:
+        if not value.isalnum():
+            raise ValueError("file_extension must be alphanumeric")
+        return value.lower()
